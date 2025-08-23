@@ -34,44 +34,58 @@ impl HashAlgorithm {
             Self::Sha1 => {
                 use sha1::{Digest, Sha1};
                 let mut hasher = Sha1::new();
-                stream(&mut file, |buf| hasher.update(buf))?;
+                stream(&mut file, |buf| {
+                    hasher.update(buf);
+                })?;
                 Ok(format!("{:x}", hasher.finalize()))
             }
             Self::Sha256 => {
                 use sha2::{Digest, Sha256};
                 let mut hasher = Sha256::new();
-                stream(&mut file, |buf| hasher.update(buf))?;
+                stream(&mut file, |buf| {
+                    hasher.update(buf);
+                })?;
                 Ok(format!("{:x}", hasher.finalize()))
             }
             Self::Blake2b => {
                 use blake2::{Blake2b512, Digest};
                 let mut hasher = Blake2b512::new();
-                stream(&mut file, |buf| hasher.update(buf))?;
+                stream(&mut file, |buf| {
+                    hasher.update(buf);
+                })?;
                 Ok(format!("{:x}", hasher.finalize()))
             }
             Self::Blake3 => {
                 let mut hasher = blake3::Hasher::new();
-                stream(&mut file, |buf| hasher.update(buf))?;
+                stream(&mut file, |buf| {
+                    hasher.update(buf);
+                })?;
                 Ok(hasher.finalize().to_hex().to_string())
             }
             Self::XxHash64 => {
                 use xxhash_rust::xxh64::Xxh64;
                 let mut hasher = Xxh64::new(0);
-                stream(&mut file, |buf| hasher.update(buf))?;
+                stream(&mut file, |buf| {
+                    hasher.update(buf);
+                })?;
                 Ok(format!("{:016x}", hasher.digest()))
             }
             Self::Xxh3 => {
                 use xxhash_rust::xxh3::Xxh3;
                 let mut hasher = Xxh3::new();
-                stream(&mut file, |buf| hasher.update(buf))?;
+                stream(&mut file, |buf| {
+                    hasher.update(buf);
+                })?;
                 Ok(format!("{:016x}", hasher.digest()))
             }
             Self::Xxh128 => {
                 use xxhash_rust::xxh3::Xxh3;
                 let mut hasher = Xxh3::new();
-                stream(&mut file, |buf| hasher.update(buf))?;
+                stream(&mut file, |buf| {
+                    hasher.update(buf);
+                })?;
                 let digest = hasher.digest128();
-                Ok(hex::encode(digest))
+                Ok(hex::encode(digest.to_be_bytes()))
             }
         }
     }
