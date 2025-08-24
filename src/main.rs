@@ -7,13 +7,18 @@ use std::io::{self, BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use hash::HashAlgorithm;
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use walkdir::WalkDir;
 
 #[derive(Parser, Debug)]
-#[command(name = "folderhash", about = "Compute and verify file checksums in a directory tree")]
+#[command(
+    name = "folderhash",
+    about = "Compute and verify file checksums in a directory tree"
+)]
 struct Args {
     /// Directory to scan
     #[arg(long)]
@@ -80,7 +85,14 @@ fn main() -> Result<()> {
         let list = args
             .list
             .ok_or_else(|| anyhow!("--list is required when verifying"))?;
-        verify(&args.dir, &list, algo, args.progress, args.verbose, args.json)?;
+        verify(
+            &args.dir,
+            &list,
+            algo,
+            args.progress,
+            args.verbose,
+            args.json,
+        )?;
     } else {
         generate(&args.dir, args.list, algo, args.progress, args.json)?;
     }
@@ -127,24 +139,41 @@ fn generate(
         None => Box::new(io::stdout()),
     };
 
-    let mut count = 0usize;
-    for entry in WalkDir::new(dir)
+    let entries: Vec<(PathBuf, String)> = WalkDir::new(dir)
         .into_iter()
         .filter_map(|e| e.ok())
         .filter(|e| e.file_type().is_file())
-    {
-        let rel = entry
-            .path()
-            .strip_prefix(dir)
-            .unwrap()
-            .to_string_lossy()
-            .to_string();
-        if existing.contains(&rel) {
-            continue;
-        }
-        let hash = algo
-            .hash_file(entry.path())
-            .with_context(|| format!("hashing {}", rel))?;
+        .filter_map(|e| {
+            let rel = e
+                .path()
+                .strip_prefix(dir)
+                .unwrap()
+                .to_string_lossy()
+                .to_string();
+            if existing.contains(&rel) {
+                None
+            } else {
+                Some((e.path().to_path_buf(), rel))
+            }
+        })
+        .collect();
+
+    let counter = AtomicUsize::new(0);
+    let results = entries
+        .par_iter()
+        .map(|(path, rel)| -> Result<(String, String)> {
+            let hash = algo
+                .hash_file(path)
+                .with_context(|| format!("hashing {}", rel))?;
+            if progress {
+                let processed = counter.fetch_add(1, Ordering::Relaxed) + 1;
+                eprintln!("processed {}", processed);
+            }
+            Ok((hash, rel.clone()))
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    for (hash, rel) in results {
         if json {
             let rec = HashRecord {
                 hash,
@@ -154,10 +183,6 @@ fn generate(
             writeln!(&mut writer)?;
         } else {
             writeln!(&mut writer, "{}  {}", hash, rel)?;
-        }
-        count += 1;
-        if progress {
-            eprintln!("processed {}", count);
         }
     }
     if let Some(start) = start {
@@ -218,33 +243,55 @@ fn verify(
     let prefix = prefix.unwrap_or_else(PathBuf::new);
 
     let total = records.len();
+    enum VerifyResult {
+        Ok(PathBuf),
+        Mismatch(PathBuf, String, String),
+        Missing(PathBuf),
+    }
+    let counter = AtomicUsize::new(0);
+    let outcomes = records
+        .par_iter()
+        .map(|rec| {
+            let original = PathBuf::from(&rec.path);
+            let rel = original
+                .strip_prefix(&prefix)
+                .unwrap_or(&original)
+                .to_path_buf();
+            let full_path = dir.join(&rel);
+            let result = match algo.hash_file(&full_path) {
+                Ok(h) if h == rec.hash => VerifyResult::Ok(rel.clone()),
+                Ok(h) => VerifyResult::Mismatch(rel.clone(), rec.hash.clone(), h),
+                Err(_) => VerifyResult::Missing(rel.clone()),
+            };
+            if progress {
+                let verified = counter.fetch_add(1, Ordering::Relaxed) + 1;
+                eprintln!("verified {}/{}", verified, total);
+            }
+            result
+        })
+        .collect::<Vec<_>>();
+
     let mut mismatches = Vec::new();
-    for (idx, rec) in records.into_iter().enumerate() {
-        let original = PathBuf::from(&rec.path);
-        let rel = original.strip_prefix(&prefix).unwrap_or(&original);
-        let full_path = dir.join(rel);
-        match algo.hash_file(&full_path) {
-            Ok(h) if h == rec.hash => {
+    for outcome in outcomes {
+        match outcome {
+            VerifyResult::Ok(rel) => {
                 if verbose {
                     println!("OK {}", rel.display());
                 }
             }
-            Ok(h) => {
+            VerifyResult::Mismatch(rel, expected, got) => {
                 println!(
                     "MISMATCH {} expected {} got {}",
                     rel.display(),
-                    rec.hash,
-                    h
+                    expected,
+                    got
                 );
                 mismatches.push(rel.display().to_string());
             }
-            Err(_) => {
+            VerifyResult::Missing(rel) => {
                 println!("MISSING {}", rel.display());
                 mismatches.push(rel.display().to_string());
             }
-        }
-        if progress {
-            eprintln!("verified {}/{}", idx + 1, total);
         }
     }
 
@@ -268,7 +315,9 @@ fn common_prefix(a: &Path, b: &Path) -> PathBuf {
     let mut prefix = PathBuf::new();
     loop {
         match (ita.next(), itb.next()) {
-            (Some(Component::RootDir), Some(Component::RootDir)) if prefix.as_os_str().is_empty() => {
+            (Some(Component::RootDir), Some(Component::RootDir))
+                if prefix.as_os_str().is_empty() =>
+            {
                 prefix.push(Component::RootDir.as_os_str())
             }
             (Some(ca), Some(cb)) if ca == cb => prefix.push(ca.as_os_str()),
@@ -277,4 +326,3 @@ fn common_prefix(a: &Path, b: &Path) -> PathBuf {
     }
     prefix
 }
-
