@@ -4,6 +4,7 @@ use std::path::Path;
 
 use hex;
 
+#[derive(Clone, Copy)]
 pub enum HashAlgorithm {
     Sha1,
     Sha256,
@@ -105,4 +106,3 @@ where
     }
     Ok(())
 }
-
