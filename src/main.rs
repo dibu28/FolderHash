@@ -5,6 +5,7 @@ use std::collections::HashSet;
 use std::fs::{File, OpenOptions};
 use std::io::{self, BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 
 use anyhow::{anyhow, Context, Result};
 use hash::HashAlgorithm;
@@ -49,6 +50,28 @@ struct HashRecord {
     path: String,
 }
 
+fn human_duration(d: std::time::Duration) -> String {
+    let secs = d.as_secs();
+    let ms = d.subsec_millis();
+    let hours = secs / 3600;
+    let minutes = (secs % 3600) / 60;
+    let seconds = secs % 60;
+    let mut parts = Vec::new();
+    if hours > 0 {
+        parts.push(format!("{}h", hours));
+    }
+    if minutes > 0 {
+        parts.push(format!("{}m", minutes));
+    }
+    if seconds > 0 || parts.is_empty() {
+        parts.push(format!("{}s", seconds));
+    }
+    if ms > 0 && hours == 0 && minutes == 0 {
+        parts.push(format!("{}ms", ms));
+    }
+    parts.join(" ")
+}
+
 fn main() -> Result<()> {
     let args = Args::parse();
     let algo = HashAlgorithm::from_str(&args.hash)
@@ -71,6 +94,7 @@ fn generate(
     progress: bool,
     json: bool,
 ) -> Result<()> {
+    let start = if progress { Some(Instant::now()) } else { None };
     let mut existing = HashSet::new();
     let mut writer: Box<dyn Write> = match &list {
         Some(path) => {
@@ -136,6 +160,9 @@ fn generate(
             eprintln!("processed {}", count);
         }
     }
+    if let Some(start) = start {
+        eprintln!("completed in {}", human_duration(start.elapsed()));
+    }
     Ok(())
 }
 
@@ -147,6 +174,7 @@ fn verify(
     verbose: bool,
     json: bool,
 ) -> Result<()> {
+    let start = if progress { Some(Instant::now()) } else { None };
     let file = File::open(list)?;
     let reader = BufReader::new(file);
     let mut records: Vec<HashRecord> = Vec::new();
@@ -226,6 +254,9 @@ fn verify(
         }
     } else {
         eprintln!("{} mismatches", mismatches.len());
+    }
+    if let Some(start) = start {
+        eprintln!("completed in {}", human_duration(start.elapsed()));
     }
     Ok(())
 }
