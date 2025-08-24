@@ -24,8 +24,8 @@ Verify files against an existing list:
 folderhash --verify --dir /path/to/dir --list hashes.txt
 ```
 
-Use `--progress` to display progress information and `--json` to read/write
-lists in JSON Lines format.
+Use `--progress` to display progress information and a summary of the total time
+taken, and `--json` to read/write lists in JSON Lines format.
 
 ## License
 
