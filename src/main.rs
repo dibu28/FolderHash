@@ -28,7 +28,7 @@ struct Args {
     #[arg(long)]
     list: Option<PathBuf>,
 
-    /// Hash algorithm to use (sha1, sha256, blake2b, blake3, xxhash, xxh3, xxh128, wyhash, highway64, highway128, highway256, rapidhash)
+    /// Hash algorithm to use (sha1, sha256, sha512, sha3, blake2b, blake3, md5, xxhash, xxh3, xxh128, wyhash, gxhash, t1ha1, t1ha2, k12, highway64, highway128, highway256, rapidhash, crc32, crc64)
     #[arg(long, default_value = "sha1")]
     hash: String,
 

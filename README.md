@@ -7,8 +7,10 @@ operation can be resumed later.  The tool can also verify a directory against a
 previously generated checksum list.
 
 By default the program uses the SHA1 hash algorithm but the algorithm can be
-changed using the `--hash` flag.  Supported values include `sha1`, `sha256`,
-`blake2b`, `blake3`, `xxhash`, `xxh3` and `xxh128`.
+changed using the `--hash` flag. Supported values include `sha1`, `sha256`,
+`sha512`, `sha3`, `blake2b`, `blake3`, `md5`, `xxhash`, `xxh3`, `xxh128`,
+`wyhash`, `gxhash`, `t1ha1`, `t1ha2`, `k12`, `highway64`, `highway128`,
+`highway256`, `rapidhash`, `crc32` and `crc64`.
 
 ## SIMD acceleration
 

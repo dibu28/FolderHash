@@ -32,16 +32,25 @@ unsafe fn xxh3_neon_update(hasher: &mut xxhash_rust::xxh3::Xxh3, buf: &[u8]) {
 pub enum HashAlgorithm {
     Sha1,
     Sha256,
+    Sha512,
+    Sha3,
     Blake2b,
     Blake3,
+    Md5,
     XxHash64,
     Xxh3,
     Xxh128,
     Wyhash,
+    GxHash,
+    T1ha1,
+    T1ha2,
+    K12,
     Highway64,
     Highway128,
     Highway256,
     RapidHash,
+    Crc32,
+    Crc64,
 }
 
 impl HashAlgorithm {
@@ -49,16 +58,25 @@ impl HashAlgorithm {
         match name.to_lowercase().as_str() {
             "sha1" => Some(Self::Sha1),
             "sha256" => Some(Self::Sha256),
+            "sha512" => Some(Self::Sha512),
+            "sha3" | "keccak" => Some(Self::Sha3),
             "blake2b" => Some(Self::Blake2b),
             "blake3" => Some(Self::Blake3),
+            "md5" => Some(Self::Md5),
             "xxhash" | "xxh64" => Some(Self::XxHash64),
             "xxh3" => Some(Self::Xxh3),
             "xxh128" => Some(Self::Xxh128),
             "wyhash" => Some(Self::Wyhash),
+            "gxhash" => Some(Self::GxHash),
+            "t1ha1" => Some(Self::T1ha1),
+            "t1ha2" => Some(Self::T1ha2),
+            "k12" | "kangarootwelve" => Some(Self::K12),
             "highway64" => Some(Self::Highway64),
             "highway128" => Some(Self::Highway128),
             "highway256" => Some(Self::Highway256),
             "rapidhash" => Some(Self::RapidHash),
+            "crc32" => Some(Self::Crc32),
+            "crc64" => Some(Self::Crc64),
             _ => None,
         }
     }
@@ -77,6 +95,22 @@ impl HashAlgorithm {
             Self::Sha256 => {
                 use sha2::{Digest, Sha256};
                 let mut hasher = Sha256::new();
+                stream(&mut file, |buf| {
+                    hasher.update(buf);
+                })?;
+                Ok(format!("{:x}", hasher.finalize()))
+            }
+            Self::Sha512 => {
+                use sha2::{Digest, Sha512};
+                let mut hasher = Sha512::new();
+                stream(&mut file, |buf| {
+                    hasher.update(buf);
+                })?;
+                Ok(format!("{:x}", hasher.finalize()))
+            }
+            Self::Sha3 => {
+                use sha3::{Digest, Keccak256};
+                let mut hasher = Keccak256::new();
                 stream(&mut file, |buf| {
                     hasher.update(buf);
                 })?;
@@ -124,6 +158,14 @@ impl HashAlgorithm {
                 }
 
                 Ok(hasher.finalize().to_hex().to_string())
+            }
+            Self::Md5 => {
+                use md5::{Digest, Md5};
+                let mut hasher = Md5::new();
+                stream(&mut file, |buf| {
+                    hasher.update(buf);
+                })?;
+                Ok(format!("{:x}", hasher.finalize()))
             }
             Self::XxHash64 => {
                 use xxhash_rust::xxh64::Xxh64;
@@ -203,18 +245,57 @@ impl HashAlgorithm {
 
                 let digest = hasher.digest128();
                 Ok(hex::encode(digest.to_be_bytes()))
-            },
+            }
             Self::Wyhash => {
-                use wyhash::WyHash;
                 use std::hash::Hasher;
+                use wyhash::WyHash;
                 let mut hasher = WyHash::with_seed(0);
                 stream(&mut file, |buf| {
                     hasher.write(buf);
                 })?;
                 Ok(format!("{:016x}", hasher.finish()))
-            },
+            }
+            Self::GxHash => {
+                use gxhash::GxHasher;
+                use std::hash::Hasher;
+                let mut hasher = GxHasher::default();
+                stream(&mut file, |buf| {
+                    hasher.write(buf);
+                })?;
+                Ok(format!("{:016x}", hasher.finish()))
+            }
+            Self::T1ha1 => {
+                use std::hash::Hasher;
+                use t1ha::T1haHasher64;
+                let mut hasher = T1haHasher64::with_seed(0);
+                stream(&mut file, |buf| {
+                    hasher.write(buf);
+                })?;
+                Ok(format!("{:016x}", hasher.finish()))
+            }
+            Self::T1ha2 => {
+                use t1ha::T1haHasher128;
+                let mut hasher = T1haHasher128::with_seed(0);
+                stream(&mut file, |buf| {
+                    hasher.write(buf);
+                })?;
+                let hash = hasher.finish128();
+                Ok(hex::encode(hash.to_be_bytes()))
+            }
+            Self::K12 => {
+                use k12::KangarooTwelve;
+                use k12::digest::{ExtendableOutput, Update, XofReader};
+                let mut hasher = KangarooTwelve::new();
+                stream(&mut file, |buf| {
+                    hasher.update(buf);
+                })?;
+                let mut out = [0u8; 32];
+                let mut reader = hasher.finalize_xof();
+                reader.read(&mut out);
+                Ok(hex::encode(out))
+            }
             Self::Highway64 => {
-                use highway::{HighwayHasher, HighwayHash};
+                use highway::{HighwayHash, HighwayHasher};
                 let mut hasher = HighwayHasher::default();
                 stream(&mut file, |buf| {
                     hasher.append(buf);
@@ -222,7 +303,7 @@ impl HashAlgorithm {
                 Ok(format!("{:016x}", hasher.finalize64()))
             }
             Self::Highway128 => {
-                use highway::{HighwayHasher, HighwayHash};
+                use highway::{HighwayHash, HighwayHasher};
                 let mut hasher = HighwayHasher::default();
                 stream(&mut file, |buf| {
                     hasher.append(buf);
@@ -235,7 +316,7 @@ impl HashAlgorithm {
                 Ok(hex::encode(bytes))
             }
             Self::Highway256 => {
-                use highway::{HighwayHasher, HighwayHash};
+                use highway::{HighwayHash, HighwayHasher};
                 let mut hasher = HighwayHasher::default();
                 stream(&mut file, |buf| {
                     hasher.append(buf);
@@ -246,7 +327,7 @@ impl HashAlgorithm {
                     bytes.extend_from_slice(&part.to_be_bytes());
                 }
                 Ok(hex::encode(bytes))
-            },
+            }
             Self::RapidHash => {
                 use rapidhash::fast::RapidHasher;
                 use std::hash::Hasher;
@@ -255,6 +336,24 @@ impl HashAlgorithm {
                     hasher.write(buf);
                 })?;
                 Ok(format!("{:016x}", hasher.finish()))
+            }
+            Self::Crc32 => {
+                use crc::{CRC_32_ISO_HDLC, Crc};
+                let crc = Crc::<u32>::new(&CRC_32_ISO_HDLC);
+                let mut hasher = crc.digest();
+                stream(&mut file, |buf| {
+                    hasher.update(buf);
+                })?;
+                Ok(format!("{:08x}", hasher.finalize()))
+            }
+            Self::Crc64 => {
+                use crc::{CRC_64_ECMA_182, Crc};
+                let crc = Crc::<u64>::new(&CRC_64_ECMA_182);
+                let mut hasher = crc.digest();
+                stream(&mut file, |buf| {
+                    hasher.update(buf);
+                })?;
+                Ok(format!("{:016x}", hasher.finalize()))
             }
         }
     }
