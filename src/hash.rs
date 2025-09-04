@@ -83,12 +83,13 @@ impl HashAlgorithm {
                 Ok(format!("{:x}", hasher.finalize()))
             }
             Self::Blake2b => {
-                use blake2::{Blake2b512, Digest};
-                let mut hasher = Blake2b512::new();
+                use blake2b_simd::Params;
+                let mut hasher = Params::new().to_state();
                 stream(&mut file, |buf| {
                     hasher.update(buf);
                 })?;
-                Ok(format!("{:x}", hasher.finalize()))
+                let hash = hasher.finalize();
+                Ok(hex::encode(hash.as_bytes()))
             }
             Self::Blake3 => {
                 let mut hasher = blake3::Hasher::new();
