@@ -13,6 +13,9 @@ pub enum HashAlgorithm {
     XxHash64,
     Xxh3,
     Xxh128,
+    Highway64,
+    Highway128,
+    Highway256,
 }
 
 impl HashAlgorithm {
@@ -25,6 +28,9 @@ impl HashAlgorithm {
             "xxhash" | "xxh64" => Some(Self::XxHash64),
             "xxh3" => Some(Self::Xxh3),
             "xxh128" => Some(Self::Xxh128),
+            "highway64" => Some(Self::Highway64),
+            "highway128" => Some(Self::Highway128),
+            "highway256" => Some(Self::Highway256),
             _ => None,
         }
     }
@@ -87,6 +93,40 @@ impl HashAlgorithm {
                 })?;
                 let digest = hasher.digest128();
                 Ok(hex::encode(digest.to_be_bytes()))
+            },
+            Self::Highway64 => {
+                use highway::{HighwayHasher, HighwayHash};
+                let mut hasher = HighwayHasher::default();
+                stream(&mut file, |buf| {
+                    hasher.append(buf);
+                })?;
+                Ok(format!("{:016x}", hasher.finalize64()))
+            }
+            Self::Highway128 => {
+                use highway::{HighwayHasher, HighwayHash};
+                let mut hasher = HighwayHasher::default();
+                stream(&mut file, |buf| {
+                    hasher.append(buf);
+                })?;
+                let hash = hasher.finalize128();
+                let mut bytes = Vec::with_capacity(16);
+                for part in &hash {
+                    bytes.extend_from_slice(&part.to_be_bytes());
+                }
+                Ok(hex::encode(bytes))
+            }
+            Self::Highway256 => {
+                use highway::{HighwayHasher, HighwayHash};
+                let mut hasher = HighwayHasher::default();
+                stream(&mut file, |buf| {
+                    hasher.append(buf);
+                })?;
+                let hash = hasher.finalize256();
+                let mut bytes = Vec::with_capacity(32);
+                for part in &hash {
+                    bytes.extend_from_slice(&part.to_be_bytes());
+                }
+                Ok(hex::encode(bytes))
             }
         }
     }
