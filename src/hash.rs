@@ -13,6 +13,7 @@ pub enum HashAlgorithm {
     XxHash64,
     Xxh3,
     Xxh128,
+    Wyhash,
     Highway64,
     Highway128,
     Highway256,
@@ -28,6 +29,7 @@ impl HashAlgorithm {
             "xxhash" | "xxh64" => Some(Self::XxHash64),
             "xxh3" => Some(Self::Xxh3),
             "xxh128" => Some(Self::Xxh128),
+            "wyhash" => Some(Self::Wyhash),
             "highway64" => Some(Self::Highway64),
             "highway128" => Some(Self::Highway128),
             "highway256" => Some(Self::Highway256),
@@ -93,6 +95,15 @@ impl HashAlgorithm {
                 })?;
                 let digest = hasher.digest128();
                 Ok(hex::encode(digest.to_be_bytes()))
+            },
+            Self::Wyhash => {
+                use wyhash::WyHash;
+                use std::hash::Hasher;
+                let mut hasher = WyHash::with_seed(0);
+                stream(&mut file, |buf| {
+                    hasher.write(buf);
+                })?;
+                Ok(format!("{:016x}", hasher.finish()))
             },
             Self::Highway64 => {
                 use highway::{HighwayHasher, HighwayHash};
