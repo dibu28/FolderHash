@@ -4,6 +4,30 @@ use std::path::Path;
 
 use hex;
 
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx2")]
+unsafe fn blake3_avx2_update(hasher: &mut blake3::Hasher, buf: &[u8]) {
+    hasher.update(buf);
+}
+
+#[cfg(target_arch = "aarch64")]
+#[target_feature(enable = "neon")]
+unsafe fn blake3_neon_update(hasher: &mut blake3::Hasher, buf: &[u8]) {
+    hasher.update(buf);
+}
+
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx2")]
+unsafe fn xxh3_avx2_update(hasher: &mut xxhash_rust::xxh3::Xxh3, buf: &[u8]) {
+    hasher.update(buf);
+}
+
+#[cfg(target_arch = "aarch64")]
+#[target_feature(enable = "neon")]
+unsafe fn xxh3_neon_update(hasher: &mut xxhash_rust::xxh3::Xxh3, buf: &[u8]) {
+    hasher.update(buf);
+}
+
 #[derive(Clone, Copy)]
 pub enum HashAlgorithm {
     Sha1,
@@ -68,9 +92,36 @@ impl HashAlgorithm {
             }
             Self::Blake3 => {
                 let mut hasher = blake3::Hasher::new();
-                stream(&mut file, |buf| {
-                    hasher.update(buf);
-                })?;
+
+                #[cfg(target_arch = "x86_64")]
+                {
+                    stream(&mut file, |buf| {
+                        if std::arch::is_x86_feature_detected!("avx2") {
+                            unsafe { blake3_avx2_update(&mut hasher, buf) };
+                        } else {
+                            hasher.update(buf);
+                        }
+                    })?;
+                }
+
+                #[cfg(target_arch = "aarch64")]
+                {
+                    stream(&mut file, |buf| {
+                        if std::arch::is_aarch64_feature_detected!("neon") {
+                            unsafe { blake3_neon_update(&mut hasher, buf) };
+                        } else {
+                            hasher.update(buf);
+                        }
+                    })?;
+                }
+
+                #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+                {
+                    stream(&mut file, |buf| {
+                        hasher.update(buf);
+                    })?;
+                }
+
                 Ok(hasher.finalize().to_hex().to_string())
             }
             Self::XxHash64 => {
@@ -84,17 +135,71 @@ impl HashAlgorithm {
             Self::Xxh3 => {
                 use xxhash_rust::xxh3::Xxh3;
                 let mut hasher = Xxh3::new();
-                stream(&mut file, |buf| {
-                    hasher.update(buf);
-                })?;
+
+                #[cfg(target_arch = "x86_64")]
+                {
+                    stream(&mut file, |buf| {
+                        if std::arch::is_x86_feature_detected!("avx2") {
+                            unsafe { xxh3_avx2_update(&mut hasher, buf) };
+                        } else {
+                            hasher.update(buf);
+                        }
+                    })?;
+                }
+
+                #[cfg(target_arch = "aarch64")]
+                {
+                    stream(&mut file, |buf| {
+                        if std::arch::is_aarch64_feature_detected!("neon") {
+                            unsafe { xxh3_neon_update(&mut hasher, buf) };
+                        } else {
+                            hasher.update(buf);
+                        }
+                    })?;
+                }
+
+                #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+                {
+                    stream(&mut file, |buf| {
+                        hasher.update(buf);
+                    })?;
+                }
+
                 Ok(format!("{:016x}", hasher.digest()))
             }
             Self::Xxh128 => {
                 use xxhash_rust::xxh3::Xxh3;
                 let mut hasher = Xxh3::new();
-                stream(&mut file, |buf| {
-                    hasher.update(buf);
-                })?;
+
+                #[cfg(target_arch = "x86_64")]
+                {
+                    stream(&mut file, |buf| {
+                        if std::arch::is_x86_feature_detected!("avx2") {
+                            unsafe { xxh3_avx2_update(&mut hasher, buf) };
+                        } else {
+                            hasher.update(buf);
+                        }
+                    })?;
+                }
+
+                #[cfg(target_arch = "aarch64")]
+                {
+                    stream(&mut file, |buf| {
+                        if std::arch::is_aarch64_feature_detected!("neon") {
+                            unsafe { xxh3_neon_update(&mut hasher, buf) };
+                        } else {
+                            hasher.update(buf);
+                        }
+                    })?;
+                }
+
+                #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+                {
+                    stream(&mut file, |buf| {
+                        hasher.update(buf);
+                    })?;
+                }
+
                 let digest = hasher.digest128();
                 Ok(hex::encode(digest.to_be_bytes()))
             },
