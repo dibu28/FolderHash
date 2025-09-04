@@ -17,3 +17,4 @@ xxhash-rust = { version = "0.8", features = ["xxh3", "xxh64"] }
 hex = "0.4"
 rayon = "1"
 highway = "0.8"
+wyhash = "0.5"
