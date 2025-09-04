@@ -17,6 +17,7 @@ pub enum HashAlgorithm {
     Highway64,
     Highway128,
     Highway256,
+    RapidHash,
 }
 
 impl HashAlgorithm {
@@ -33,6 +34,7 @@ impl HashAlgorithm {
             "highway64" => Some(Self::Highway64),
             "highway128" => Some(Self::Highway128),
             "highway256" => Some(Self::Highway256),
+            "rapidhash" => Some(Self::RapidHash),
             _ => None,
         }
     }
@@ -138,6 +140,15 @@ impl HashAlgorithm {
                     bytes.extend_from_slice(&part.to_be_bytes());
                 }
                 Ok(hex::encode(bytes))
+            },
+            Self::RapidHash => {
+                use rapidhash::Rapidhash;
+                use std::hash::Hasher;
+                let mut hasher = Rapidhash::new();
+                stream(&mut file, |buf| {
+                    hasher.write(buf);
+                })?;
+                Ok(format!("{:016x}", hasher.finish()))
             }
         }
     }
