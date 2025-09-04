@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 anyhow = "1"
-blake2 = { version = "0.10", features = ["simd", "simd_opt"] }
+blake2b_simd = { version = "1", features = ["neon"] }
 blake3 = { version = "1", features = ["neon"] }
 clap = { version = "4", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }
