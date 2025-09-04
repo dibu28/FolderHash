@@ -248,7 +248,7 @@ impl HashAlgorithm {
                 Ok(hex::encode(bytes))
             },
             Self::RapidHash => {
-                use rapidhash::RapidHasher;
+                use rapidhash::fast::RapidHasher;
                 use std::hash::Hasher;
                 let mut hasher = RapidHasher::default();
                 stream(&mut file, |buf| {
