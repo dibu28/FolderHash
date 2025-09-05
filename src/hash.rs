@@ -269,32 +269,32 @@ impl HashAlgorithm {
             }
             Self::T1ha1 => {
                 use std::hash::Hasher;
-                use t1ha::T1haHasher64;
-                let mut hasher = T1haHasher64::with_seed(0);
+                use t1ha::T1haHasher;
+                let mut hasher = T1haHasher::with_seed(0);
                 stream(&mut file, |buf| {
                     hasher.write(buf);
                 })?;
                 Ok(format!("{:016x}", hasher.finish()))
             }
             Self::T1ha2 => {
-                use t1ha::T1haHasher128;
-                let mut hasher = T1haHasher128::with_seed(0);
+                use t1ha::T1ha2Hasher;
+                let mut hasher = T1ha2Hasher::with_seeds(0, 0);
                 stream(&mut file, |buf| {
-                    hasher.write(buf);
+                    hasher.update(buf);
                 })?;
                 let hash = hasher.finish128();
                 Ok(hex::encode(hash.to_be_bytes()))
             }
             Self::K12 => {
                 use k12::KangarooTwelve;
-                use k12::digest::{ExtendableOutput, Update, XofReader};
-                let mut hasher = KangarooTwelve::new();
+                use k12::digest::{ExtendableOutput, Update};
+                let mut hasher = KangarooTwelve::default();
                 stream(&mut file, |buf| {
                     hasher.update(buf);
                 })?;
                 let mut out = [0u8; 32];
                 let mut reader = hasher.finalize_xof();
-                reader.read(&mut out);
+                k12::digest::XofReader::read(&mut reader, &mut out);
                 Ok(hex::encode(out))
             }
             Self::Highway64 => {
