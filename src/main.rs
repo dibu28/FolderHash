@@ -62,6 +62,10 @@ struct HashRecord {
     path: String,
 }
 
+fn normalize_path(path: &str) -> String {
+    path.replace('\\', "/")
+}
+
 fn human_duration(d: std::time::Duration) -> String {
     let secs = d.as_secs();
     let ms = d.subsec_millis();
@@ -127,7 +131,7 @@ fn generate(
                             continue;
                         }
                         let rec: HashRecord = serde_json::from_str(&l)?;
-                        existing.insert(rec.path);
+                        existing.insert(normalize_path(&rec.path));
                     }
                 } else {
                     for line in reader.lines() {
@@ -136,7 +140,7 @@ fn generate(
                             continue;
                         }
                         if let Some((_, path_part)) = l.split_once(' ') {
-                            existing.insert(path_part.trim().to_string());
+                            existing.insert(normalize_path(path_part.trim()));
                         }
                     }
                 }
@@ -151,12 +155,13 @@ fn generate(
         .filter_map(|e| e.ok())
         .filter(|e| e.file_type().is_file())
         .filter_map(|e| {
-            let rel = e
+            let rel_raw = e
                 .path()
                 .strip_prefix(dir)
                 .unwrap()
                 .to_string_lossy()
-                .to_string();
+                .into_owned();
+            let rel = normalize_path(&rel_raw);
             if existing.contains(&rel) {
                 None
             } else {
@@ -216,7 +221,8 @@ fn verify(
             if l.trim().is_empty() {
                 continue;
             }
-            let rec: HashRecord = serde_json::from_str(&l)?;
+            let mut rec: HashRecord = serde_json::from_str(&l)?;
+            rec.path = normalize_path(&rec.path);
             records.push(rec);
         }
     } else {
@@ -228,7 +234,7 @@ fn verify(
             if let Some((hash, path_part)) = l.split_once(' ') {
                 records.push(HashRecord {
                     hash: hash.to_string(),
-                    path: path_part.trim().to_string(),
+                    path: normalize_path(path_part.trim()),
                 });
             }
         }
