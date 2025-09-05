@@ -41,6 +41,7 @@ pub enum HashAlgorithm {
     Xxh3,
     Xxh128,
     Wyhash,
+    #[cfg(feature = "gxhash")]
     GxHash,
     T1ha1,
     T1ha2,
@@ -67,6 +68,7 @@ impl HashAlgorithm {
             "xxh3" => Some(Self::Xxh3),
             "xxh128" => Some(Self::Xxh128),
             "wyhash" => Some(Self::Wyhash),
+            #[cfg(feature = "gxhash")]
             "gxhash" => Some(Self::GxHash),
             "t1ha1" => Some(Self::T1ha1),
             "t1ha2" => Some(Self::T1ha2),
@@ -255,6 +257,7 @@ impl HashAlgorithm {
                 })?;
                 Ok(format!("{:016x}", hasher.finish()))
             }
+            #[cfg(feature = "gxhash")]
             Self::GxHash => {
                 use gxhash::GxHasher;
                 use std::hash::Hasher;
