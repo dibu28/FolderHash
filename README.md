@@ -9,8 +9,17 @@ previously generated checksum list.
 By default the program uses the SHA1 hash algorithm but the algorithm can be
 changed using the `--hash` flag. Supported values include `sha1`, `sha256`,
 `sha512`, `sha3`, `blake2b`, `blake3`, `md5`, `xxhash`, `xxh3`, `xxh128`,
-`wyhash`, `gxhash`, `t1ha1`, `t1ha2`, `k12`, `highway64`, `highway128`,
+`wyhash`, `t1ha1`, `t1ha2`, `k12`, `highway64`, `highway128`,
 `highway256`, `rapidhash`, `crc32` and `crc64`.
+
+The `gxhash` algorithm is available behind an optional Cargo feature because it
+requires `aes` and `sse2` CPU intrinsics. Enable it during compilation with:
+
+```
+cargo build --features gxhash
+```
+
+After enabling the feature, `gxhash` can be selected with `--hash gxhash`.
 
 ## SIMD acceleration
 

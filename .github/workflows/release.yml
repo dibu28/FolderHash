@@ -18,26 +18,32 @@ jobs:
             target: x86_64-unknown-linux-gnu
             artifact: folderhash-linux-x86_64
             extension: ""
+            rustflags: "-C target-feature=+aes,+sse2"
           - os: ubuntu-latest
             target: aarch64-unknown-linux-gnu
             artifact: folderhash-linux-aarch64
             extension: ""
+            rustflags: "-C target-feature=+aes,+neon"
           - os: macos-latest
             target: x86_64-apple-darwin
             artifact: folderhash-macos-x86_64
             extension: ""
+            rustflags: "-C target-feature=+aes,+sse2"
           - os: macos-latest
             target: aarch64-apple-darwin
             artifact: folderhash-macos-aarch64
             extension: ""
+            rustflags: "-C target-feature=+aes,+neon"
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             artifact: folderhash-windows-x86_64.exe
             extension: ".exe"
+            rustflags: "-C target-feature=+aes,+sse2"
           - os: windows-latest
             target: aarch64-pc-windows-msvc
             artifact: folderhash-windows-aarch64.exe
             extension: ".exe"
+            rustflags: "-C target-feature=+aes,+neon"
     steps:
       - uses: actions/checkout@v3
       - name: Install Rust
@@ -50,7 +56,9 @@ jobs:
         if: matrix.target == 'aarch64-unknown-linux-gnu'
         run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
       - name: Build
-        run: cargo build --release --target ${{ matrix.target }}
+        run: cargo build --release --features gxhash --target ${{ matrix.target }}
+        env:
+          RUSTFLAGS: ${{ matrix.rustflags }}
       - name: Prepare artifact
         run: |
           mkdir artifacts
